@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="820" viewBox="0 0 1440 820">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a1220"/><stop offset="1" stop-color="#111d2e"/></linearGradient>
+  <linearGradient id="teal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1b887e"/><stop offset="1" stop-color="#54cbb7"/></linearGradient>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity=".28"/></filter>
+  <style>
+    .h{font:700 34px Inter,Arial,sans-serif;fill:#f3f7fb}
+    .sub{font:400 17px Inter,Arial,sans-serif;fill:#9eb0c5}
+    .k{font:700 13px Inter,Arial,sans-serif;fill:#67d6c2;letter-spacing:2px}
+    .t{font:700 19px Inter,Arial,sans-serif;fill:#f3f7fb}
+    .d{font:400 14px Inter,Arial,sans-serif;fill:#b3c1d1}
+    .op{font:700 15px Inter,Arial,sans-serif;fill:#07151a}
+    .foot{font:600 16px Inter,Arial,sans-serif;fill:#dbe6f0}
+  </style>
+</defs>
+<rect width="1440" height="820" rx="28" fill="url(#bg)"/>
+<text x="72" y="78" class="k">EXORDIUM / SYSTEM DESIGN</text>
+<text x="72" y="130" class="h">AFTERTRACE</text>
+<text x="72" y="164" class="sub">Persistent incident memory. Evidence comparison. Human-led decisions.</text>
+
+<g filter="url(#shadow)">
+  <rect x="72" y="250" width="250" height="150" rx="18" fill="#17263a" stroke="#38506c"/>
+  <rect x="365" y="250" width="250" height="150" rx="18" fill="#17263a" stroke="#38506c"/>
+  <rect x="658" y="220" width="330" height="210" rx="20" fill="#132d35" stroke="#3c9c91" stroke-width="2"/>
+  <rect x="1030" y="250" width="335" height="150" rx="18" fill="#17263a" stroke="#38506c"/>
+</g>
+<text x="98" y="286" class="k">INPUT</text>
+<text x="98" y="326" class="t">New incident</text>
+<text x="98" y="356" class="d">Structured observations</text>
+<text x="98" y="380" class="d">Actor, entity, event, context</text>
+
+<text x="391" y="286" class="k">APPLICATION</text>
+<text x="391" y="326" class="t">AFTERTRACE</text>
+<text x="391" y="356" class="d">Normalise + validate</text>
+<text x="391" y="380" class="d">Streamlit / Python</text>
+
+<text x="690" y="260" class="k">PERSISTENT MEMORY</text>
+<text x="690" y="304" class="t">Hindsight</text>
+<rect x="690" y="334" width="82" height="42" rx="10" fill="url(#teal)"/><rect x="782" y="334" width="82" height="42" rx="10" fill="url(#teal)"/><rect x="874" y="334" width="82" height="42" rx="10" fill="url(#teal)"/>
+<text x="731" y="360" text-anchor="middle" class="op">RETAIN</text>
+<text x="823" y="360" text-anchor="middle" class="op">RECALL</text>
+<text x="915" y="360" text-anchor="middle" class="op">REFLECT</text>
+<text x="690" y="402" class="d">Investigation history + lessons</text>
+
+<text x="1056" y="286" class="k">OUTPUT</text>
+<text x="1056" y="326" class="t">Evidence Delta</text>
+<text x="1056" y="356" class="d">Matches / changed evidence</text>
+<text x="1056" y="380" class="d">Unknowns / next checks</text>
+
+<g stroke="#65cdbb" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M322 325 H357"/><path d="M615 325 H650"/><path d="M988 325 H1022"/>
+  <path d="M349 317 L357 325 L349 333"/><path d="M642 317 L650 325 L642 333"/><path d="M1014 317 L1022 325 L1014 333"/>
+</g>
+
+<g filter="url(#shadow)">
+  <rect x="250" y="510" width="390" height="135" rx="18" fill="#17263a" stroke="#38506c"/>
+  <rect x="800" y="510" width="390" height="135" rx="18" fill="#17263a" stroke="#38506c"/>
+</g>
+<text x="278" y="548" class="k">HUMAN REVIEW</text>
+<text x="278" y="585" class="t">Analyst validates the evidence</text>
+<text x="278" y="614" class="d">No automatic verdict or remediation</text>
+<text x="828" y="548" class="k">LEARNING LOOP</text>
+<text x="828" y="585" class="t">Feedback + final outcome</text>
+<text x="828" y="614" class="d">Retained for future investigations</text>
+<g stroke="#65cdbb" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1198 575 H1285 V700 H720 V438"/>
+  <path d="M712 446 L720 438 L728 446"/>
+  <path d="M640 575 H792"/>
+  <path d="M784 567 L792 575 L784 583"/>
+</g>
+<text x="72" y="744" class="foot">Remember the incident. Re-check the evidence. Never inherit the conclusion.</text>
+<text x="72" y="775" class="sub">AFTERTRACE is a defensive investigation-support prototype using synthetic incident data.</text>
+</svg>

@@ -1,0 +1,17 @@
+{
+  "first_investigation": {
+    "incident_id": "AT-001",
+    "synthetic": true,
+    "entity": "Northstar Calendar Connector",
+    "permission_change": "No new permission grant recorded",
+    "lesson": "Approval in one investigation does not establish that future permission changes are safe."
+  },
+  "follow_up": {
+    "incident_id": "AT-002",
+    "synthetic": true,
+    "entity": "Northstar Calendar Connector",
+    "permission_change": "New permission change observed",
+    "actor": "Unverified actor context",
+    "outcome": "Undetermined"
+  }
+}

@@ -4,10 +4,13 @@
 Preserve lessons from an incident investigation and bring relevant history into the next related investigation.
 
 ## Components
-- `app.py`: Streamlit interface and analyst workflow.
-- `aftertrace/engine.py`: Hindsight connection, bank initialisation, retain, recall, reflect, and deterministic field comparison.
+- `app.py`: Streamlit interface and analyst workflow orchestration.
+- `aftertrace/engine.py`: Hindsight connection, bank initialisation, retain, recall, reflect, recalled-record extraction, and deterministic field comparison.
+- `aftertrace/incidents.py`: Incident input validation and timestamp/text normalization.
+- `aftertrace/ui_state.py`: Clears cached analysis and retained-result state after submitted incident edits.
 - `aftertrace/sample_data.py`: repeatable synthetic scenario.
 - `data/sample_incidents.json`: portable sample records.
+- `tests/test_engine.py`: Focused checks for Hindsight-facing behavior, validation, provenance, and Streamlit state.
 
 ## Hindsight lifecycle
 1. `ensure_bank()` creates the AFTERTRACE memory bank when needed.

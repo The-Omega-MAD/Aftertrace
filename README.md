@@ -167,6 +167,8 @@ aftertrace/
 ├── aftertrace/
 │   ├── __init__.py
 │   ├── engine.py
+│   ├── incidents.py
+│   ├── ui_state.py
 │   └── sample_data.py
 ├── data/sample_incidents.json
 ├── docs/
@@ -177,6 +179,7 @@ aftertrace/
 │   ├── LINKEDIN_POST.md
 │   └── VIDEO_SCRIPT.md
 ├── assets/
+├── tests/test_engine.py
 ├── .env.example
 ├── .gitignore
 └── requirements.txt

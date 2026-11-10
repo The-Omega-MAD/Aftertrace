@@ -50,6 +50,8 @@ client = Hindsight(
 The retain path stores the incident as structured JSON with context and metadata:
 
 ```python
+from datetime import datetime
+
 client.retain(
     bank_id=bank_id,
     content=incident_memory_text(incident),
@@ -57,10 +59,15 @@ client.retain(
     metadata={
         "project": "AFTERTRACE",
         "incident_id": incident.get("incident_id", "unknown"),
-        "synthetic": True,
+        "synthetic": "true",
         "record_type": "incident_investigation",
     },
-    timestamp=incident.get("timestamp"),
+    document_id=f"aftertrace:{incident.get('incident_id', 'unknown')}",
+    update_mode="replace",
+    timestamp=(
+        datetime.fromisoformat(incident["timestamp"].replace("Z", "+00:00"))
+        if incident.get("timestamp") else None
+    ),
 )
 ```
 

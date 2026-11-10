@@ -7,6 +7,8 @@ from typing import Any
 
 from hindsight_client import Hindsight
 
+from .incidents import normalize_incident, validate_incident
+
 
 def get_client() -> Hindsight:
     api_key = os.getenv("HINDSIGHT_API_KEY", "").strip()
@@ -53,22 +55,63 @@ def incident_memory_text(incident: dict[str, Any]) -> str:
     )
 
 
-def retain_incident(client: Hindsight, bank_id: str, incident: dict[str, Any]) -> None:
-    client.retain(
+def retain_incident(client: Hindsight, bank_id: str, incident: dict[str, Any]):
+    """Store one incident document, replacing prior versions on retries."""
+    incident_id = incident.get("incident_id", "unknown")
+    return client.retain(
         bank_id=bank_id,
         content=incident_memory_text(incident),
         context="AFTERTRACE incident investigation and analyst learning",
         metadata={
             "project": "AFTERTRACE",
-            "incident_id": incident.get("incident_id", "unknown"),
-            "synthetic": True,
+            "incident_id": incident_id,
+            "synthetic": "true",
             "record_type": "incident_investigation",
         },
+        document_id=f"aftertrace:{incident_id}",
+        update_mode="replace",
         timestamp=(
             datetime.fromisoformat(incident["timestamp"].replace("Z", "+00:00"))
             if incident.get("timestamp") else None
         ),
     )
+
+
+def recalled_incident_records(
+    recalled: Any, exclude_incident_id: str | None = None
+) -> list[tuple[Any, dict[str, Any]]]:
+    """Extract complete structured historical records from recalled text or chunks."""
+    records: list[tuple[Any, dict[str, Any]]] = []
+    prefix = "AFTERTRACE SYNTHETIC INCIDENT MEMORY\n"
+    suffix = "\nThe outcome applies only to this incident."
+    required = {"incident_id", "entity", "actor", "permission_change", "approval_context"}
+    seen: set[str] = set()
+    chunks = getattr(recalled, "chunks", {}) or {}
+    for memory in getattr(recalled, "results", []) or []:
+        texts = [getattr(memory, "text", "")]
+        chunk_id = getattr(memory, "chunk_id", None)
+        chunk = chunks.get(chunk_id) if chunk_id else None
+        if chunk is not None and not getattr(chunk, "truncated", False):
+            texts.insert(0, getattr(chunk, "text", ""))
+        for text in texts:
+            start = text.find(prefix) if isinstance(text, str) else -1
+            end = text.find(suffix, start + len(prefix)) if start >= 0 else -1
+            if start < 0 or end < 0:
+                continue
+            try:
+                incident = json.loads(text[start + len(prefix):end])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(incident, dict) or not required.issubset(incident):
+                continue
+            incident_id = str(incident["incident_id"])
+            if exclude_incident_id is not None and incident_id == str(exclude_incident_id):
+                break
+            if incident_id not in seen:
+                seen.add(incident_id)
+                records.append((memory, incident))
+            break
+    return records
 
 
 def recall_incidents(client: Hindsight, bank_id: str, incident: dict[str, Any]):
@@ -78,7 +121,12 @@ def recall_incidents(client: Hindsight, bank_id: str, incident: dict[str, Any]):
         "against reusing an old disposition blindly. Current incident: "
         + json.dumps(incident, ensure_ascii=False)
     )
-    return client.recall(bank_id=bank_id, query=query, budget="mid")
+    return client.recall(
+        bank_id=bank_id,
+        query=query,
+        budget="mid",
+        include_chunks=True,
+    )
 
 
 def reflect_on_incident(client: Hindsight, bank_id: str, incident: dict[str, Any]):

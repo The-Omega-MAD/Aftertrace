@@ -1,11 +1,17 @@
+from html import escape
+
 import streamlit as st
 from dotenv import load_dotenv
 
 from aftertrace.engine import (
     ensure_bank, evidence_delta, get_bank_id, get_client,
-    recall_incidents, reflect_on_incident, retain_incident,
+    recalled_incident_records, recall_incidents, reflect_on_incident,
+    retain_incident,
 )
+from aftertrace.incidents import normalize_incident, validate_incident
 from aftertrace.sample_data import FIRST_INCIDENT, FOLLOWUP_INCIDENT
+from aftertrace.ui_state import invalidate_incident_results
+
 
 load_dotenv()
 st.set_page_config(page_title="AFTERTRACE | Incident Continuity", page_icon="◈", layout="wide")
@@ -22,6 +28,13 @@ background:linear-gradient(120deg,#101d2e,#111827 65%,#172238); margin-bottom:1.
 .panel { background:#111a28; border:1px solid #27374d; border-radius:14px; padding:1rem 1.1rem; }
 .metric { color:#8fa4bc; font-size:.8rem; }
 .value { color:#f5f7fa; font-size:1.15rem; font-weight:650; }
+.evidence-delta { width:100%; border-collapse:collapse; color:#dbe6f0; }
+.evidence-delta th { text-align:left; color:#78d9c5; font-size:.8rem; padding:.7rem; border-bottom:1px solid #27374d; }
+.evidence-delta td { text-align:left; padding:.75rem .7rem; border-bottom:1px solid #27374d; vertical-align:top; }
+.evidence-delta tr:last-child td { border-bottom:0; }
+.evidence-status { font-weight:700; white-space:nowrap; }
+.evidence-status.same { color:#78d9c5; }
+.evidence-status.changed { color:#f2c879; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -53,6 +66,31 @@ if "baseline" not in st.session_state:
     st.session_state.baseline = None
 if "incident" not in st.session_state:
     st.session_state.incident = dict(FOLLOWUP_INCIDENT)
+if "last_retained_incident" not in st.session_state:
+    st.session_state.last_retained_incident = None
+if "last_hindsight_retain_response" not in st.session_state:
+    st.session_state.last_hindsight_retain_response = None
+
+
+def evidence_delta_markup(rows):
+    """Render the compact Evidence Delta without Streamlit's Arrow data path."""
+    body = []
+    for row in rows:
+        status = str(row.get("status", ""))
+        status_class = "same" if status == "Same" else "changed"
+        body.append(
+            "<tr>"
+            f"<td>{escape(str(row.get('dimension', '')))}</td>"
+            f"<td>{escape(str(row.get('previous', '')))}</td>"
+            f"<td>{escape(str(row.get('current', '')))}</td>"
+            f"<td><span class=\"evidence-status {status_class}\">{escape(status)}</span></td>"
+            "</tr>"
+        )
+    return (
+        '<div class="panel"><table class="evidence-delta">'
+        "<thead><tr><th>Dimension</th><th>Previous</th><th>Current</th><th>Status</th></tr></thead>"
+        f"<tbody>{''.join(body)}</tbody></table></div>"
+    )
 
 a, b = st.columns([1, 3])
 with a:
@@ -97,30 +135,50 @@ st.write("Same application. New event. The analyst must re-check the evidence.")
 with st.form("incident_form"):
     left, right = st.columns(2)
     with left:
-        incident_id = st.text_input("Incident ID", "AT-002")
-        title = st.text_input("Alert title", "OAuth application permission change")
-        entity = st.text_input("Application / entity", "Northstar Calendar Connector")
-        actor = st.text_input("Actor context", "Unverified actor context")
+        incident_id = st.text_input("Incident ID", st.session_state.incident["incident_id"])
+        title = st.text_input("Alert title", st.session_state.incident["title"])
+        entity = st.text_input("Application / entity", st.session_state.incident["entity"])
+        actor = st.text_input("Actor context", st.session_state.incident["actor"])
     with right:
-        severity = st.selectbox("Severity", ["Low", "Medium", "High", "Critical"], index=2)
-        permission = st.text_input("Permission event", "New permission change observed")
-        approval = st.text_input("Approval context", "Not yet verified for this event")
+        timestamp = st.text_input(
+            "Event timestamp (ISO 8601)", st.session_state.incident["timestamp"]
+        )
+        severities = ["Low", "Medium", "High", "Critical"]
+        current_severity = st.session_state.incident.get("severity", "High")
+        severity = st.selectbox(
+            "Severity", severities,
+            index=severities.index(current_severity) if current_severity in severities else 2,
+        )
+        permission = st.text_input(
+            "Permission event", st.session_state.incident["permission_change"]
+        )
+        approval = st.text_input(
+            "Approval context", st.session_state.incident["approval_context"]
+        )
     obs = st.text_area(
         "Current observations (one per line)",
-        "\n".join(FOLLOWUP_INCIDENT["observations"]),
+        "\n".join(st.session_state.incident.get("observations", [])),
         height=110,
     )
     save = st.form_submit_button("Save current incident details")
     if save:
-        st.session_state.incident = {
+        candidate = {
             "incident_id": incident_id, "title": title,
-            "timestamp": FOLLOWUP_INCIDENT["timestamp"], "severity": severity,
+            "timestamp": timestamp, "severity": severity,
             "entity": entity, "actor": actor, "permission_change": permission,
             "approval_context": approval,
             "observations": [x.strip() for x in obs.splitlines() if x.strip()],
             "analyst_finding": "", "lesson": "", "outcome": "Undetermined",
         }
-        st.success("Current incident saved.")
+        # A submitted edit invalidates every result derived from the prior input,
+        # including when the new input fails validation.
+        invalidate_incident_results(st.session_state)
+        errors = validate_incident(candidate)
+        if errors:
+            st.error("Please fix the incident details: " + " ".join(errors))
+        else:
+            st.session_state.incident = normalize_incident(candidate)
+            st.success("Current incident saved. Previous analysis and baseline cleared.")
 
 incident = st.session_state.incident
 c1, c2, c3 = st.columns(3)
@@ -159,16 +217,44 @@ if st.button("Recall history + generate Evidence Delta", type="primary", use_con
             with st.spinner("Recalling prior investigations and reflecting on current evidence..."):
                 recalled = recall_incidents(st.session_state.client, get_bank_id(), incident)
                 reflected = reflect_on_incident(st.session_state.client, get_bank_id(), incident)
-                st.session_state.analysis = (recalled, reflected, incident)
+                st.session_state.analysis = (recalled, reflected, dict(incident))
         except Exception as exc:
             st.error(f"Investigation failed: {exc}")
 
 if st.session_state.analysis:
     recalled, reflected, current = st.session_state.analysis
+    historical_records = recalled_incident_records(
+        recalled, exclude_incident_id=current.get("incident_id")
+    )
     st.markdown("---")
     st.markdown("### 03 / Evidence Delta")
-    st.caption("This field-by-field comparison is deterministic. Hindsight supplies historical context and reflection.")
-    st.dataframe(evidence_delta(FIRST_INCIDENT, current), use_container_width=True, hide_index=True)
+    st.caption("This deterministic comparison uses a complete structured incident record returned by Hindsight recall.")
+    if historical_records:
+        recalled_ids = [record[1]["incident_id"] for record in historical_records]
+        selected_id = st.selectbox(
+            "Historical incident to compare",
+            recalled_ids,
+            format_func=lambda incident_id: (
+                f"{incident_id} · "
+                f"{next(record[1].get('timestamp', 'date not recorded') for record in historical_records if record[1]['incident_id'] == incident_id)}"
+            ),
+        )
+        previous = next(record[1] for record in historical_records if record[1]["incident_id"] == selected_id)
+        st.caption(
+            f"Comparing against recalled incident {previous['incident_id']}"
+            + (f" · {previous.get('timestamp')}" if previous.get("timestamp") else "")
+            + "."
+        )
+        st.markdown(
+            evidence_delta_markup(evidence_delta(previous, current)),
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info(
+            "No complete historical incident record was returned by recall, so no "
+            "Evidence Delta is shown. Recalled memory snippets are available below, "
+            "but are not treated as a structured historical incident."
+        )
 
     st.markdown("### 04 / What Hindsight recalled")
     memories = getattr(recalled, "results", []) or []
@@ -194,11 +280,43 @@ if st.session_state.analysis:
         if submit_feedback:
             updated = dict(current)
             updated.update({"analyst_finding": finding, "lesson": lesson, "outcome": outcome})
-            try:
-                retain_incident(st.session_state.client, get_bank_id(), updated)
-                st.success("Analyst feedback retained for future investigations.")
-            except Exception as exc:
-                st.error(f"Feedback retain failed: {exc}")
+            feedback_errors = []
+            if len(finding.strip()) > 2000:
+                feedback_errors.append("Analyst finding must be 2,000 characters or fewer.")
+            if len(lesson.strip()) > 2000:
+                feedback_errors.append("Lesson must be 2,000 characters or fewer.")
+            if feedback_errors:
+                st.error(" ".join(feedback_errors))
+            else:
+                updated = normalize_incident(updated)
+                try:
+                    retain_result = retain_incident(
+                        st.session_state.client, get_bank_id(), updated
+                    )
+                    st.session_state.incident = updated
+                    st.session_state.analysis = (recalled, reflected, updated)
+                    st.session_state.last_retained_incident = updated
+                    if hasattr(retain_result, "model_dump"):
+                        retain_result = retain_result.model_dump(mode="json")
+                    elif not isinstance(
+                        retain_result,
+                        (dict, list, str, int, float, bool, type(None)),
+                    ):
+                        retain_result = str(retain_result)
+                    st.session_state.last_hindsight_retain_response = retain_result
+                    st.success(
+                        f"Feedback retained for {updated['incident_id']}. "
+                        "Saving again replaces the same Hindsight document."
+                    )
+                except Exception as exc:
+                    st.error(f"Feedback retain failed: {exc}")
+
+    if st.session_state.last_retained_incident:
+        st.markdown("#### Retained incident record")
+        st.json(st.session_state.last_retained_incident)
+        if st.session_state.last_hindsight_retain_response is not None:
+            st.caption("Hindsight retain response")
+            st.json(st.session_state.last_hindsight_retain_response)
 
 st.markdown("---")
 st.caption("Defensive decision-support prototype. No automated remediation or incident disposition.")
